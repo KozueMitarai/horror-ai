@@ -1,0 +1,315 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+AI Horror Writer Project - Static Site Builder
+This script converts Markdown files in `stories/` into HTML files in `docs/` and `docs/stories/`.
+No external dependencies are required.
+"""
+
+import os
+import re
+import urllib.parse
+
+# Define paths relative to the project root
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+STORIES_DIR = os.path.join(ROOT_DIR, "stories")
+DOCS_DIR = os.path.join(ROOT_DIR, "docs")
+DOCS_STORIES_DIR = os.path.join(DOCS_DIR, "stories")
+
+def parse_markdown(content):
+    """
+    Parses Markdown frontmatter (YAML block) and main content body.
+    """
+    frontmatter = {}
+    body = ""
+    content = content.strip()
+    
+    if content.startswith("---"):
+        # Split by the frontmatter boundary
+        parts = content.split("---", 2)
+        if len(parts) >= 3:
+            yaml_part = parts[1]
+            body = parts[2].strip()
+            # Parse YAML-like lines
+            for line in yaml_part.splitlines():
+                if ":" in line:
+                    key, value = line.split(":", 1)
+                    key = key.strip()
+                    value = value.strip().strip('"').strip("'")
+                    
+                    if key == "tags":
+                        # Handle tag lists, e.g., [horror, ghost] or horror, ghost
+                        tags_str = value
+                        if tags_str.startswith("[") and tags_str.endswith("]"):
+                            tags_str = tags_str[1:-1]
+                        frontmatter["tags"] = [t.strip().strip('"').strip("'") for t in tags_str.split(",") if t.strip()]
+                    else:
+                        frontmatter[key] = value
+        else:
+            body = content
+    else:
+        body = content
+        
+    # Default values if missing
+    if "title" not in frontmatter:
+        frontmatter["title"] = "無題の怪談"
+    if "date" not in frontmatter:
+        frontmatter["date"] = "2026-07-17"
+    if "synopsis" not in frontmatter:
+        frontmatter["synopsis"] = "解説はありません。"
+    if "tags" not in frontmatter:
+        frontmatter["tags"] = []
+        
+    return frontmatter, body
+
+def inline_markdown(text):
+    """
+    Converts inline Markdown (bold, italic, links) to HTML.
+    """
+    # Bold: **text** or __text__
+    text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
+    text = re.sub(r'__(.*?)__', r'<strong>\1</strong>', text)
+    # Italic: *text* or _text_
+    text = re.sub(r'\*(.*?)\*', r'<em>\1</em>', text)
+    text = re.sub(r'_(.*?)_', r'<em>\1</em>', text)
+    # Links: [text](url)
+    text = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2">\1</a>', text)
+    return text
+
+def markdown_to_html(md_text):
+    """
+    Converts a Markdown string to an HTML block string.
+    """
+    md_text = md_text.replace('\r\n', '\n')
+    # Split into blocks by two or more newlines
+    raw_blocks = re.split(r'\n\n+', md_text)
+    html_blocks = []
+    
+    for block in raw_blocks:
+        block = block.strip()
+        if not block:
+            continue
+            
+        lines = block.split('\n')
+        # Check if list (all lines starting with -, *, or +)
+        is_list = all(line.strip().startswith(('-', '*', '+')) for line in lines)
+        
+        if is_list:
+            items_html = []
+            for line in lines:
+                line_content = line.strip()[1:].strip()
+                items_html.append(f"<li>{inline_markdown(line_content)}</li>")
+            html_blocks.append(f"<ul>{''.join(items_html)}</ul>")
+            continue
+            
+        # Check if heading
+        if block.startswith('#'):
+            match = re.match(r'^(#{1,6})\s+(.*)$', block)
+            if match:
+                level = len(match.group(1))
+                content = inline_markdown(match.group(2).strip())
+                html_blocks.append(f"<h{level}>{content}</h{level}>")
+                continue
+                
+        # Check if blockquote
+        if block.startswith('>'):
+            quote_lines = []
+            for line in lines:
+                if line.strip().startswith('>'):
+                    quote_lines.append(line.strip()[1:].strip())
+                else:
+                    quote_lines.append(line.strip())
+            # Recursively render blockquote body
+            quote_content = markdown_to_html('\n\n'.join(quote_lines))
+            html_blocks.append(f"<blockquote>{quote_content}</blockquote>")
+            continue
+            
+        # Check if horizontal rule
+        if block in ('---', '***', '___'):
+            html_blocks.append("<hr>")
+            continue
+            
+        # Standard paragraph
+        # Preserving single line breaks within paragraphs as <br>
+        content = inline_markdown(block.replace('\n', '<br>'))
+        html_blocks.append(f"<p>{content}</p>")
+        
+    return '\n'.join(html_blocks)
+
+# Page Layout Templates
+STORY_PAGE_TEMPLATE = """<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title} - AIホラー作家育成プロジェクト</title>
+    <meta name="description" content="{synopsis}">
+    <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+    <header>
+        <h1><a href="../index.html">AIホラー作家育成プロジェクト</a></h1>
+        <p>暗闇から紡ぎ出される、人工知能による恐怖の物語群。</p>
+    </header>
+    
+    <div class="container">
+        <nav>
+            <a href="../index.html">← 作品一覧に戻る</a>
+        </nav>
+        
+        <article class="story-container">
+            <div class="story-header">
+                <h2>{title}</h2>
+                <div class="story-meta">
+                    <span>公開日: {date}</span>
+                    {tags_html}
+                </div>
+            </div>
+            
+            <div class="story-content">
+                {content_html}
+            </div>
+        </article>
+        
+        <div class="feedback-box">
+            <h3>この作品の感想を聞かせてください</h3>
+            <p>作品に対するご意見や、読後感、考察などは GitHub Issues で募集しています。新しい Issue を作成して、お気軽に投稿してください。</p>
+            <a href="https://github.com/KozueMitarai/horror-ai/issues/new?title={feedback_title}" target="_blank" rel="noopener noreferrer" class="btn-feedback">
+                💬 感想を投稿する (GitHub Issues)
+            </a>
+        </div>
+    </div>
+    
+    <footer>
+        <p>© 2026 AIホラー作家育成プロジェクト</p>
+        <p>This website is automatically generated and deployed.</p>
+    </footer>
+</body>
+</html>
+"""
+
+INDEX_PAGE_TEMPLATE = """<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIホラー作家育成プロジェクト</title>
+    <meta name="description" content="人工知能が執筆するホラー小説。AIによる独自の恐怖、コズミックホラー、心理的恐怖を収録しています。">
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+    <header>
+        <h1><a href="index.html">AIホラー作家育成プロジェクト</a></h1>
+        <p>暗闇から紡ぎ出される、人工知能による恐怖の物語群。</p>
+    </header>
+    
+    <div class="container">
+        <div class="story-list">
+            {stories_list_html}
+        </div>
+    </div>
+    
+    <footer>
+        <p>© 2026 AIホラー作家育成プロジェクト</p>
+        <p>This website is automatically generated and deployed.</p>
+    </footer>
+</body>
+</html>
+"""
+
+def main():
+    print("Building static horror stories site...")
+    
+    # Check directories
+    if not os.path.exists(STORIES_DIR):
+        print(f"Error: Stories directory '{STORIES_DIR}' does not exist. Creating it.")
+        os.makedirs(STORIES_DIR, exist_ok=True)
+        
+    os.makedirs(DOCS_STORIES_DIR, exist_ok=True)
+    
+    stories_data = []
+    
+    # Process each markdown file in the stories/ directory
+    for filename in os.listdir(STORIES_DIR):
+        if filename.endswith(".md"):
+            filepath = os.path.join(STORIES_DIR, filename)
+            print(f"Processing story: {filename}")
+            
+            with open(filepath, "r", encoding="utf-8") as f:
+                content = f.read()
+                
+            frontmatter, body = parse_markdown(content)
+            
+            # Base filename for the HTML output (e.g., 2026-07-17.html)
+            html_filename = filename.replace(".md", ".html")
+            
+            # Convert markdown body to HTML
+            content_html = markdown_to_html(body)
+            
+            # Format tags for story page
+            tags_html = ""
+            if frontmatter["tags"]:
+                tags_html = '<div class="tags">' + ''.join(f'<span class="tag">#{t}</span>' for t in frontmatter["tags"]) + '</div>'
+                
+            # Prepare feedback link title (URL encoded)
+            feedback_title = urllib.parse.quote(f"感想: {frontmatter['title']} ({frontmatter['date']})")
+            
+            # Generate the HTML content for this story
+            story_html = STORY_PAGE_TEMPLATE.format(
+                title=frontmatter["title"],
+                date=frontmatter["date"],
+                synopsis=frontmatter["synopsis"],
+                tags_html=tags_html,
+                content_html=content_html,
+                feedback_title=feedback_title
+            )
+            
+            # Write individual story HTML page
+            story_out_path = os.path.join(DOCS_STORIES_DIR, html_filename)
+            with open(story_out_path, "w", encoding="utf-8") as f:
+                f.write(story_html)
+                
+            # Keep data for the main index page
+            stories_data.append({
+                "title": frontmatter["title"],
+                "date": frontmatter["date"],
+                "synopsis": frontmatter["synopsis"],
+                "tags": frontmatter["tags"],
+                "filename": html_filename
+            })
+            
+    # Sort stories by date descending (latest first)
+    stories_data.sort(key=lambda s: s["date"], reverse=True)
+    
+    # Build list of stories for the index page
+    stories_list_html_parts = []
+    for story in stories_data:
+        tags_html = ""
+        if story["tags"]:
+            tags_html = '<div class="tags">' + ''.join(f'<span class="tag">#{t}</span>' for t in story["tags"]) + '</div>'
+            
+        story_card = f"""            <article class="story-card">
+                <div class="story-meta">
+                    <span>公開日: {story["date"]}</span>
+                    {tags_html}
+                </div>
+                <h2>{story["title"]}</h2>
+                <p class="story-synopsis">{story["synopsis"]}</p>
+                <a href="stories/{story["filename"]}" class="story-link">物語を読む</a>
+            </article>"""
+        stories_list_html_parts.append(story_card)
+        
+    stories_list_html = "\n".join(stories_list_html_parts)
+    
+    # Generate index.html content
+    index_html = INDEX_PAGE_TEMPLATE.format(stories_list_html=stories_list_html)
+    
+    # Write docs/index.html
+    index_out_path = os.path.join(DOCS_DIR, "index.html")
+    with open(index_out_path, "w", encoding="utf-8") as f:
+        f.write(index_html)
+        
+    print("Build complete successfully!")
+
+if __name__ == "__main__":
+    main()

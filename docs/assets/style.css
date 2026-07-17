@@ -1,0 +1,404 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Lora:ital,wght@0,400;0,600;1,400;1,600&family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg-color: #070709;
+  --bg-vignette: radial-gradient(circle, #1a0808 0%, #070709 100%);
+  --card-bg: rgba(15, 15, 18, 0.85);
+  --card-hover-bg: rgba(25, 15, 15, 0.9);
+  --accent-red: #8b0000;
+  --glow-red: #ff2a2a;
+  --text-primary: #f5f5f7;
+  --text-secondary: #a0a0ab;
+  --text-muted: #6e6e73;
+  --border-color: rgba(139, 0, 0, 0.25);
+  --border-hover: rgba(255, 42, 42, 0.6);
+  --font-display: 'Cinzel Decorative', serif;
+  --font-body: 'Lora', serif;
+  --font-sans: 'Inter', sans-serif;
+  --max-width: 800px;
+  --transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Base Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-color);
+  background-image: var(--bg-vignette);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  line-height: 1.8;
+  letter-spacing: 0.03em;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #070709;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--accent-red);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--glow-red);
+}
+
+/* Layout Containers */
+.container {
+  width: 100%;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  flex: 1;
+}
+
+/* Header Styling */
+header {
+  text-align: center;
+  padding: 4rem 1.5rem 2rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+}
+
+header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 150px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glow-red), transparent);
+}
+
+header h1 {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  color: var(--text-primary);
+  text-shadow: 0 0 15px rgba(255, 42, 42, 0.4);
+  letter-spacing: 0.1em;
+  margin-bottom: 1rem;
+}
+
+header h1 a {
+  color: inherit;
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+header h1 a:hover {
+  color: var(--glow-red);
+  text-shadow: 0 0 25px var(--glow-red);
+}
+
+header p {
+  font-family: var(--font-sans);
+  font-weight: 300;
+  font-size: 1rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.05em;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* Main Site Navigation (if needed) */
+nav {
+  margin-bottom: 3rem;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+}
+
+nav a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+nav a:hover {
+  color: var(--glow-red);
+  text-shadow: 0 0 8px rgba(255, 42, 42, 0.6);
+}
+
+/* Story Index Grid */
+.story-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.story-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 2rem;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+}
+
+.story-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background-color: var(--accent-red);
+  transition: var(--transition);
+}
+
+.story-card:hover {
+  background: var(--card-hover-bg);
+  border-color: var(--border-hover);
+  transform: translateY(-4px);
+  box-shadow: 0 10px 30px rgba(139, 0, 0, 0.15);
+}
+
+.story-card:hover::before {
+  background-color: var(--glow-red);
+  box-shadow: 0 0 10px var(--glow-red);
+}
+
+.story-meta {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.story-meta span {
+  display: inline-flex;
+  align-items: center;
+}
+
+.story-card h2 {
+  font-size: 1.6rem;
+  margin-bottom: 1rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: var(--transition);
+}
+
+.story-card:hover h2 {
+  color: var(--text-primary);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+.story-synopsis {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.story-link {
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--glow-red);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: var(--transition);
+}
+
+.story-link:hover {
+  text-shadow: 0 0 8px var(--glow-red);
+}
+
+.story-link::after {
+  content: '→';
+  transition: var(--transition);
+}
+
+.story-link:hover::after {
+  transform: translateX(5px);
+}
+
+/* Individual Story Styling */
+.story-container {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 3rem 2.5rem;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  margin-top: 1rem;
+}
+
+.story-header {
+  margin-bottom: 2.5rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 1.5rem;
+}
+
+.story-header h2 {
+  font-size: 2.2rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-bottom: 1rem;
+  text-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+}
+
+.story-content {
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+
+/* First paragraph drop cap for horror aesthetic */
+.story-content > p:first-of-type::first-letter {
+  font-family: var(--font-display);
+  font-size: 3.5rem;
+  float: left;
+  line-height: 1;
+  padding-right: 0.5rem;
+  color: var(--glow-red);
+  text-shadow: 0 0 10px rgba(255, 42, 42, 0.3);
+}
+
+.story-content p {
+  margin-bottom: 1.8rem;
+  text-align: justify;
+}
+
+.story-content blockquote {
+  border-left: 3px solid var(--accent-red);
+  background: rgba(139, 0, 0, 0.05);
+  padding: 1.2rem 1.5rem;
+  margin: 2rem 0;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.story-content blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.story-content hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+  margin: 3rem 0;
+}
+
+.story-content h3 {
+  font-size: 1.4rem;
+  margin: 2.5rem 0 1.2rem 0;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  border-bottom: 1px solid rgba(139, 0, 0, 0.15);
+  padding-bottom: 0.5rem;
+}
+
+/* Feedback Box Styling */
+.feedback-box {
+  margin-top: 4rem;
+  background: rgba(139, 0, 0, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 2rem;
+  text-align: center;
+  font-family: var(--font-sans);
+}
+
+.feedback-box h3 {
+  font-family: var(--font-body);
+  font-size: 1.2rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+.feedback-box p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.btn-feedback {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--accent-red);
+  color: var(--text-primary);
+  text-decoration: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: var(--transition);
+  border: 1px solid transparent;
+}
+
+.btn-feedback:hover {
+  background-color: transparent;
+  border-color: var(--glow-red);
+  color: var(--glow-red);
+  box-shadow: 0 0 15px rgba(255, 42, 42, 0.3);
+}
+
+/* Tag styling */
+.tags {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.tag {
+  font-size: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Footer Styling */
+footer {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  border-top: 1px solid var(--border-color);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: auto;
+}
+
+footer p {
+  margin-bottom: 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  header h1 {
+    font-size: 1.8rem;
+  }
+  .story-container {
+    padding: 2rem 1.5rem;
+  }
+  .story-header h2 {
+    font-size: 1.7rem;
+  }
+}
