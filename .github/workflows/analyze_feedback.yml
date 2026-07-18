@@ -1,0 +1,67 @@
+name: Analyze Feedback and Update Knowledge Base
+
+# Issue が新規作成されたときにトリガーする
+on:
+  issues:
+    types: [opened]
+
+# 必要な権限を設定する
+# contents: write … knowledge/horror.md の変更をコミット・プッシュするため
+# issues: write  … Issue へのコメント投稿・クローズのため
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  analyze-feedback:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. リポジトリをチェックアウトする
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Python 環境をセットアップする
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      # 3. フィードバック解析スクリプトを実行する
+      #    GEMINI_API_KEY は GitHub Secrets から安全に渡す
+      - name: Run feedback analysis script
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python process_feedback.py
+
+      # 4. 更新された knowledge/horror.md を Git にコミットしてプッシュする
+      - name: Commit and push knowledge base update
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add knowledge/horror.md
+          # 変更があった場合のみコミットする（変更がない場合はスキップ）
+          git diff --cached --quiet || git commit -m "docs: Issue #${{ github.event.issue.number }} のフィードバックをナレッジベースに反映"
+          git push
+
+      # 5. 処理完了をIssueにコメントし、Issueをクローズする
+      - name: Comment on issue and close it
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueNumber = context.issue.number;
+
+            // コメントを投稿する
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `✅ **フィードバックを反映しました！**\n\nこのIssueの内容をGemini APIで分析し、ホラー執筆ナレッジベース（\`knowledge/horror.md\`）に追記しました。貴重なご意見ありがとうございました。\n\n今後の作品制作に活かしてまいります。👻`
+            });
+
+            // Issueをクローズする
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              state: 'closed'
+            });
