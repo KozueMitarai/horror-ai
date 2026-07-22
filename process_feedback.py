@@ -9,12 +9,57 @@ and appends the analysis results to `knowledge/horror.md`.
 
 import os
 import json
+import time
 import urllib.request
 import urllib.error
 
 # Define paths
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 KNOWLEDGE_PATH = os.path.join(ROOT_DIR, "knowledge", "horror.md")
+
+# Gemini API occasionally returns transient errors (503 Service Unavailable
+# when the model is overloaded, 429 rate limiting, 500/502/504). Retry these
+# with exponential backoff instead of failing the whole workflow immediately.
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+MAX_RETRIES = 5
+INITIAL_BACKOFF_SECONDS = 5
+
+
+def call_gemini_api(request_factory):
+    """Send a Gemini API request, retrying on transient (5xx/429) errors."""
+    last_error = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        req = request_factory()
+        try:
+            with urllib.request.urlopen(req, timeout=60) as res:
+                return json.loads(res.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8")
+            last_error = e
+            if e.code in RETRYABLE_STATUS_CODES and attempt < MAX_RETRIES:
+                wait = INITIAL_BACKOFF_SECONDS * (2 ** (attempt - 1))
+                print(
+                    f"HTTP Error: {e.code} - {body} "
+                    f"(attempt {attempt}/{MAX_RETRIES}, retrying in {wait}s)"
+                )
+                time.sleep(wait)
+                continue
+            print(f"HTTP Error: {e.code} - {body}")
+            raise
+        except (urllib.error.URLError, TimeoutError) as e:
+            last_error = e
+            if attempt < MAX_RETRIES:
+                wait = INITIAL_BACKOFF_SECONDS * (2 ** (attempt - 1))
+                print(
+                    f"Network error calling Gemini API: {e} "
+                    f"(attempt {attempt}/{MAX_RETRIES}, retrying in {wait}s)"
+                )
+                time.sleep(wait)
+                continue
+            print(f"Network error calling Gemini API: {e}")
+            raise
+    raise last_error
+
 
 def main():
     print("Starting feedback processing script...")
@@ -100,22 +145,19 @@ def main():
         ]
     }
 
-    req = urllib.request.Request(
-        url, 
-        data=json.dumps(payload).encode("utf-8"), 
-        headers=headers, 
-        method="POST"
-    )
+    def build_request():
+        return urllib.request.Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers=headers,
+            method="POST"
+        )
 
     print("Calling Gemini API...")
     try:
-        with urllib.request.urlopen(req) as res:
-            response_data = json.loads(res.read().decode("utf-8"))
-            analysis_text = response_data["candidates"][0]["content"]["parts"][0]["text"].strip()
-            print("Successfully received analysis from Gemini API.")
-    except urllib.error.HTTPError as e:
-        print(f"HTTP Error: {e.code} - {e.read().decode('utf-8')}")
-        exit(1)
+        response_data = call_gemini_api(build_request)
+        analysis_text = response_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        print("Successfully received analysis from Gemini API.")
     except Exception as e:
         print(f"Error calling Gemini API: {e}")
         exit(1)
@@ -188,22 +230,19 @@ def main():
         ]
     }
 
-    pattern_req = urllib.request.Request(
-        url,
-        data=json.dumps(pattern_payload).encode("utf-8"),
-        headers=headers,
-        method="POST"
-    )
+    def build_pattern_request():
+        return urllib.request.Request(
+            url,
+            data=json.dumps(pattern_payload).encode("utf-8"),
+            headers=headers,
+            method="POST"
+        )
 
     print("Calling Gemini API to summarize recurring feedback patterns...")
     try:
-        with urllib.request.urlopen(pattern_req) as res:
-            pattern_response_data = json.loads(res.read().decode("utf-8"))
-            recurring_patterns_text = pattern_response_data["candidates"][0]["content"]["parts"][0]["text"].strip()
-            print("Successfully received recurring pattern summary from Gemini API.")
-    except urllib.error.HTTPError as e:
-        print(f"HTTP Error: {e.code} - {e.read().decode('utf-8')}")
-        exit(1)
+        pattern_response_data = call_gemini_api(build_pattern_request)
+        recurring_patterns_text = pattern_response_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        print("Successfully received recurring pattern summary from Gemini API.")
     except Exception as e:
         print(f"Error calling Gemini API: {e}")
         exit(1)
