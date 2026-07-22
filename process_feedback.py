@@ -158,5 +158,87 @@ def main():
 
     print(f"Successfully updated knowledge base file: {KNOWLEDGE_PATH}")
 
+    # 5. Call Gemini API again to extract recurring failure patterns
+    # from the accumulated feedback, so they can be promoted to a
+    # dedicated "priority issues" section at the top of the knowledge base.
+    pattern_prompt = f"""あなたは優秀なホラー小説のアナリストです。
+以下は、これまでに読者から寄せられたフィードバックを分析した記録を蓄積した、ホラー小説執筆ナレッジベースの全文です。
+
+この中の「5. 読者フィードバックからの知見」に蓄積された複数のフィードバック分析を横断的に確認し、2回以上繰り返し指摘されている問題パターンがあれば、簡潔な原則として3〜5個程度、箇条書きで要約してください。
+1回しか出ていない指摘は含めないでください。繰り返し指摘されている問題が見つからない場合は、その旨を1行で述べてください。
+
+ナレッジベース全文:
+---
+{knowledge_content}
+---
+
+出力フォーマット（Markdown）:
+必ず箇条書き（`- ` で始まる行）のみを出力してください。見出し、挨拶文、前置き、まとめ、解説などは一切含めないでください。各項目は、次回以降の執筆で踏まえるべき原則として簡潔にまとめてください。
+"""
+
+    pattern_payload = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "text": pattern_prompt
+                    }
+                ]
+            }
+        ]
+    }
+
+    pattern_req = urllib.request.Request(
+        url,
+        data=json.dumps(pattern_payload).encode("utf-8"),
+        headers=headers,
+        method="POST"
+    )
+
+    print("Calling Gemini API to summarize recurring feedback patterns...")
+    try:
+        with urllib.request.urlopen(pattern_req) as res:
+            pattern_response_data = json.loads(res.read().decode("utf-8"))
+            recurring_patterns_text = pattern_response_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            print("Successfully received recurring pattern summary from Gemini API.")
+    except urllib.error.HTTPError as e:
+        print(f"HTTP Error: {e.code} - {e.read().decode('utf-8')}")
+        exit(1)
+    except Exception as e:
+        print(f"Error calling Gemini API: {e}")
+        exit(1)
+
+    # 6. Insert (or replace) the "0. 頻出課題" section at the top of the
+    # knowledge base, right after the title and before "1. ホラーの基本原則".
+    recurring_section_header = "## 0. 頻出課題（要優先対応）"
+    first_principle_header = "## 1. ホラーの基本原則"
+    recurring_section_block = (
+        f"{recurring_section_header}\n\n"
+        f"{recurring_patterns_text}\n\n"
+        "---\n\n"
+    )
+
+    if first_principle_header not in knowledge_content:
+        print(f"Warning: '{first_principle_header}' not found. Appending section 0 to the end instead.")
+        if not knowledge_content.endswith("\n\n"):
+            knowledge_content += "\n" if knowledge_content.endswith("\n") else "\n\n"
+        knowledge_content += f"{recurring_section_header}\n\n{recurring_patterns_text}\n"
+    else:
+        before_part, _, after_part = knowledge_content.partition(first_principle_header)
+
+        if recurring_section_header in before_part:
+            print("Replacing the contents of the existing section 0.")
+            before_part = before_part.split(recurring_section_header, 1)[0]
+        else:
+            print("Inserting a new section 0 at the top of the knowledge base.")
+
+        before_part = before_part.rstrip("\n") + "\n\n"
+        knowledge_content = before_part + recurring_section_block + first_principle_header + after_part
+
+    with open(KNOWLEDGE_PATH, "w", encoding="utf-8") as f:
+        f.write(knowledge_content)
+
+    print(f"Successfully updated the recurring pattern section in: {KNOWLEDGE_PATH}")
+
 if __name__ == "__main__":
     main()
