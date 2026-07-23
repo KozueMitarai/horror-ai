@@ -359,6 +359,119 @@ nav a:hover {
   box-shadow: 0 0 15px rgba(255, 42, 42, 0.3);
 }
 
+/* Feedback Form Styling */
+.feedback-form {
+  text-align: left;
+  margin-top: 1rem;
+}
+
+.rating-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.form-group label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.03em;
+}
+
+.feedback-form select,
+.feedback-form textarea {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  padding: 0.6rem 0.7rem;
+  transition: var(--transition);
+  width: 100%;
+}
+
+.feedback-form select {
+  cursor: pointer;
+}
+
+.feedback-form textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.feedback-form select:focus,
+.feedback-form textarea:focus {
+  outline: none;
+  border-color: var(--border-hover);
+  box-shadow: 0 0 10px rgba(255, 42, 42, 0.2);
+}
+
+.feedback-form select::placeholder,
+.feedback-form textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.feedback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+.btn-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-copy:hover {
+  border-color: var(--glow-red);
+  color: var(--glow-red);
+  box-shadow: 0 0 15px rgba(255, 42, 42, 0.3);
+}
+
+.copy-status {
+  text-align: center;
+  font-size: 0.85rem;
+  margin-top: 1rem;
+  min-height: 1.2em;
+  color: var(--text-secondary);
+}
+
+.copy-status-ok {
+  color: #7ed88a;
+}
+
+.copy-status-error {
+  color: var(--glow-red);
+}
+
+@media (max-width: 600px) {
+  .rating-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 /* Tag styling */
 .tags {
   display: flex;

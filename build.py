@@ -16,6 +16,11 @@ STORIES_DIR = os.path.join(ROOT_DIR, "stories")
 DOCS_DIR = os.path.join(ROOT_DIR, "docs")
 DOCS_STORIES_DIR = os.path.join(DOCS_DIR, "stories")
 
+# Shared <option> list (1-10) used by every rating <select> in the feedback form
+RATING_OPTIONS_HTML = '<option value="">-</option>' + ''.join(
+    f'<option value="{i}">{i}</option>' for i in range(1, 11)
+)
+
 def parse_markdown(content):
     """
     Parses Markdown frontmatter (YAML block) and main content body.
@@ -173,17 +178,124 @@ STORY_PAGE_TEMPLATE = """<!DOCTYPE html>
         
         <div class="feedback-box">
             <h3>この作品の感想を聞かせてください</h3>
-            <p>作品に対するご意見や、読後感、考察などは GitHub Issues で募集しています。新しい Issue を作成して、お気軽に投稿してください。</p>
-            <a href="https://github.com/KozueMitarai/horror-ai/issues/new?title={feedback_title}" target="_blank" rel="noopener noreferrer" class="btn-feedback">
-                💬 感想を投稿する (GitHub Issues)
-            </a>
+            <p>下のフォームに評価とコメントを入力し、「① 回答をコピーする」を押してください。コピーした内容を「② GitHub Issueを開く」から本文に貼り付けて投稿すると、次回作の改善に活かされます。</p>
+
+            <form class="feedback-form" onsubmit="return false;">
+                <div class="rating-grid">
+                    <div class="form-group">
+                        <label for="rating-atmosphere">雰囲気</label>
+                        <select id="rating-atmosphere">{rating_options_html}</select>
+                    </div>
+                    <div class="form-group">
+                        <label for="rating-fear">怖さ</label>
+                        <select id="rating-fear">{rating_options_html}</select>
+                    </div>
+                    <div class="form-group">
+                        <label for="rating-structure">構成</label>
+                        <select id="rating-structure">{rating_options_html}</select>
+                    </div>
+                    <div class="form-group">
+                        <label for="rating-expression">表現力</label>
+                        <select id="rating-expression">{rating_options_html}</select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="feedback-good">良かった点</label>
+                    <textarea id="feedback-good" rows="3" placeholder="怖かった描写、印象に残ったセリフなど"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="feedback-bad">悪かった点</label>
+                    <textarea id="feedback-bad" rows="3" placeholder="没入感が削がれた部分、違和感のある設定など"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="feedback-improve">改善案・その他のコメント</label>
+                    <textarea id="feedback-improve" rows="3" placeholder="次回作への要望など"></textarea>
+                </div>
+
+                <div class="feedback-actions">
+                    <button type="button" class="btn-copy" onclick="copyFeedback()">📋 ① 回答をコピーする</button>
+                    <a href="https://github.com/KozueMitarai/horror-ai/issues/new?title={feedback_title}" target="_blank" rel="noopener noreferrer" class="btn-feedback">
+                        💬 ② GitHub Issueを開く
+                    </a>
+                </div>
+                <p id="copy-feedback-status" class="copy-status" role="status"></p>
+            </form>
         </div>
     </div>
-    
+
     <footer>
         <p>© 2026 AIホラー作家育成プロジェクト</p>
         <p>This website is automatically generated and deployed.</p>
     </footer>
+
+    <script>
+    function copyFeedback() {{
+        var atmosphere = document.getElementById('rating-atmosphere').value;
+        var fear = document.getElementById('rating-fear').value;
+        var structure = document.getElementById('rating-structure').value;
+        var expression = document.getElementById('rating-expression').value;
+        var good = document.getElementById('feedback-good').value.trim();
+        var bad = document.getElementById('feedback-bad').value.trim();
+        var improve = document.getElementById('feedback-improve').value.trim();
+
+        var lines = [];
+        lines.push('■評価（10点満点、未回答は「-」）');
+        lines.push('雰囲気: ' + (atmosphere || '-'));
+        lines.push('怖さ: ' + (fear || '-'));
+        lines.push('構成: ' + (structure || '-'));
+        lines.push('表現力: ' + (expression || '-'));
+        lines.push('');
+        lines.push('■良かった点');
+        lines.push(good || '(未記入)');
+        lines.push('');
+        lines.push('■悪かった点');
+        lines.push(bad || '(未記入)');
+        lines.push('');
+        lines.push('■改善案・その他のコメント');
+        lines.push(improve || '(未記入)');
+
+        var text = lines.join('\\n');
+        var statusEl = document.getElementById('copy-feedback-status');
+
+        function showSuccess() {{
+            statusEl.textContent = '✅ コピーしました。②のボタンからIssueを開いて、本文に貼り付けてください。';
+            statusEl.className = 'copy-status copy-status-ok';
+        }}
+        function showFailure() {{
+            statusEl.textContent = '⚠ 自動コピーに失敗しました。お手数ですが手動でコピーしてください。';
+            statusEl.className = 'copy-status copy-status-error';
+        }}
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {{
+            navigator.clipboard.writeText(text).then(showSuccess, function() {{
+                fallbackCopy(text, showSuccess, showFailure);
+            }});
+        }} else {{
+            fallbackCopy(text, showSuccess, showFailure);
+        }}
+    }}
+
+    function fallbackCopy(text, onSuccess, onFailure) {{
+        var temp = document.createElement('textarea');
+        temp.value = text;
+        temp.style.position = 'fixed';
+        temp.style.opacity = '0';
+        document.body.appendChild(temp);
+        temp.focus();
+        temp.select();
+        try {{
+            var ok = document.execCommand('copy');
+            document.body.removeChild(temp);
+            if (ok) {{ onSuccess(); }} else {{ onFailure(); }}
+        }} catch (err) {{
+            document.body.removeChild(temp);
+            onFailure();
+        }}
+    }}
+    </script>
 </body>
 </html>
 """
@@ -261,7 +373,8 @@ def main():
                 synopsis=frontmatter["synopsis"],
                 tags_html=tags_html,
                 content_html=content_html,
-                feedback_title=feedback_title
+                feedback_title=feedback_title,
+                rating_options_html=RATING_OPTIONS_HTML
             )
             
             # Write individual story HTML page
