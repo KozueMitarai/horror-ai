@@ -173,7 +173,7 @@ def main():
         knowledge_content = f.read()
 
     # Section header to separate reader feedback insights
-    section_header = "## 5. 読者フィードバックからの知見"
+    section_header = "## 7. 読者フィードバックからの知見"
     
     if section_header not in knowledge_content:
         print("Adding section header for reader feedback insights.")
@@ -206,7 +206,7 @@ def main():
     pattern_prompt = f"""あなたは優秀なホラー小説のアナリストです。
 以下は、これまでに読者から寄せられたフィードバックを分析した記録を蓄積した、ホラー小説執筆ナレッジベースの全文です。
 
-この中の「5. 読者フィードバックからの知見」に蓄積された複数のフィードバック分析を横断的に確認し、2回以上繰り返し指摘されている問題パターンがあれば、簡潔な原則として3〜5個程度、箇条書きで要約してください。
+この中の「7. 読者フィードバックからの知見」に蓄積された複数のフィードバック分析を横断的に確認し、2回以上繰り返し指摘されている問題パターンがあれば、簡潔な原則として3〜5個程度、箇条書きで要約してください。
 1回しか出ていない指摘は含めないでください。繰り返し指摘されている問題が見つからない場合は、その旨を1行で述べてください。
 
 ナレッジベース全文:
@@ -247,32 +247,35 @@ def main():
         print(f"Error calling Gemini API: {e}")
         exit(1)
 
-    # 6. Insert (or replace) the "0. 頻出課題" section at the top of the
-    # knowledge base, right after the title and before "1. ホラーの基本原則".
-    recurring_section_header = "## 0. 頻出課題（要優先対応）"
-    first_principle_header = "## 1. ホラーの基本原則"
-    recurring_section_block = (
-        f"{recurring_section_header}\n\n"
-        f"{recurring_patterns_text}\n\n"
-        "---\n\n"
-    )
+    # 6. Refresh the auto-generated recurring-pattern summary that lives
+    # inside the "0. 頻出課題（要優先対応・カテゴリ別）" section, at the top of
+    # the knowledge base. That section also contains hand-curated, categorized
+    # notes (with Issue # references), so instead of replacing the whole
+    # section, only the block between these markers is rewritten.
+    marker_start = "<!-- AUTO:RECURRING_PATTERNS:START -->"
+    marker_end = "<!-- AUTO:RECURRING_PATTERNS:END -->"
+    marker_note = "（以下は、蓄積されたフィードバックから2回以上繰り返し指摘されているパターンを自動要約したものです。フィードバック受信のたびに自動更新されるため、手動では編集しないでください。）"
+    auto_block = f"{marker_start}\n{marker_note}\n\n{recurring_patterns_text}\n{marker_end}"
 
-    if first_principle_header not in knowledge_content:
-        print(f"Warning: '{first_principle_header}' not found. Appending section 0 to the end instead.")
-        if not knowledge_content.endswith("\n\n"):
-            knowledge_content += "\n" if knowledge_content.endswith("\n") else "\n\n"
-        knowledge_content += f"{recurring_section_header}\n\n{recurring_patterns_text}\n"
+    if marker_start in knowledge_content and marker_end in knowledge_content:
+        print("Replacing the contents of the existing auto-summary block.")
+        before_part, _, rest = knowledge_content.partition(marker_start)
+        _, _, after_part = rest.partition(marker_end)
+        knowledge_content = before_part + auto_block + after_part
     else:
-        before_part, _, after_part = knowledge_content.partition(first_principle_header)
-
-        if recurring_section_header in before_part:
-            print("Replacing the contents of the existing section 0.")
-            before_part = before_part.split(recurring_section_header, 1)[0]
+        first_principle_header = "## 1. ホラーの基本原則"
+        print(f"Warning: auto-summary markers not found. Inserting them before '{first_principle_header}'.")
+        recurring_section_header = "## 0. 頻出課題（要優先対応・カテゴリ別）"
+        if recurring_section_header not in knowledge_content and first_principle_header not in knowledge_content:
+            if not knowledge_content.endswith("\n\n"):
+                knowledge_content += "\n" if knowledge_content.endswith("\n") else "\n\n"
+            knowledge_content += f"{recurring_section_header}\n\n{auto_block}\n"
+        elif first_principle_header in knowledge_content:
+            before_part, _, after_part = knowledge_content.partition(first_principle_header)
+            before_part = before_part.rstrip("\n") + "\n\n"
+            knowledge_content = before_part + f"{auto_block}\n\n---\n\n" + first_principle_header + after_part
         else:
-            print("Inserting a new section 0 at the top of the knowledge base.")
-
-        before_part = before_part.rstrip("\n") + "\n\n"
-        knowledge_content = before_part + recurring_section_block + first_principle_header + after_part
+            knowledge_content = knowledge_content.rstrip("\n") + f"\n\n{auto_block}\n"
 
     with open(KNOWLEDGE_PATH, "w", encoding="utf-8") as f:
         f.write(knowledge_content)
