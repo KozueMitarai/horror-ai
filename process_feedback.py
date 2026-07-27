@@ -200,87 +200,16 @@ def main():
 
     print(f"Successfully updated knowledge base file: {KNOWLEDGE_PATH}")
 
-    # 5. Call Gemini API again to extract recurring failure patterns
-    # from the accumulated feedback, so they can be promoted to a
-    # dedicated "priority issues" section at the top of the knowledge base.
-    pattern_prompt = f"""あなたは優秀なホラー小説のアナリストです。
-以下は、これまでに読者から寄せられたフィードバックを分析した記録を蓄積した、ホラー小説執筆ナレッジベースの全文です。
-
-この中の「7. 読者フィードバックからの知見」に蓄積された複数のフィードバック分析を横断的に確認し、2回以上繰り返し指摘されている問題パターンがあれば、簡潔な原則として3〜5個程度、箇条書きで要約してください。
-1回しか出ていない指摘は含めないでください。繰り返し指摘されている問題が見つからない場合は、その旨を1行で述べてください。
-
-ナレッジベース全文:
----
-{knowledge_content}
----
-
-出力フォーマット（Markdown）:
-必ず箇条書き（`- ` で始まる行）のみを出力してください。見出し、挨拶文、前置き、まとめ、解説などは一切含めないでください。各項目は、次回以降の執筆で踏まえるべき原則として簡潔にまとめてください。
-"""
-
-    pattern_payload = {
-        "contents": [
-            {
-                "parts": [
-                    {
-                        "text": pattern_prompt
-                    }
-                ]
-            }
-        ]
-    }
-
-    def build_pattern_request():
-        return urllib.request.Request(
-            url,
-            data=json.dumps(pattern_payload).encode("utf-8"),
-            headers=headers,
-            method="POST"
-        )
-
-    print("Calling Gemini API to summarize recurring feedback patterns...")
-    try:
-        pattern_response_data = call_gemini_api(build_pattern_request)
-        recurring_patterns_text = pattern_response_data["candidates"][0]["content"]["parts"][0]["text"].strip()
-        print("Successfully received recurring pattern summary from Gemini API.")
-    except Exception as e:
-        print(f"Error calling Gemini API: {e}")
-        exit(1)
-
-    # 6. Refresh the auto-generated recurring-pattern summary that lives
-    # inside the "0. 頻出課題（要優先対応・カテゴリ別）" section, at the top of
-    # the knowledge base. That section also contains hand-curated, categorized
-    # notes (with Issue # references), so instead of replacing the whole
-    # section, only the block between these markers is rewritten.
-    marker_start = "<!-- AUTO:RECURRING_PATTERNS:START -->"
-    marker_end = "<!-- AUTO:RECURRING_PATTERNS:END -->"
-    marker_note = "（以下は、蓄積されたフィードバックから2回以上繰り返し指摘されているパターンを自動要約したものです。フィードバック受信のたびに自動更新されるため、手動では編集しないでください。）"
-    auto_block = f"{marker_start}\n{marker_note}\n\n{recurring_patterns_text}\n{marker_end}"
-
-    if marker_start in knowledge_content and marker_end in knowledge_content:
-        print("Replacing the contents of the existing auto-summary block.")
-        before_part, _, rest = knowledge_content.partition(marker_start)
-        _, _, after_part = rest.partition(marker_end)
-        knowledge_content = before_part + auto_block + after_part
-    else:
-        first_principle_header = "## 1. ホラーの基本原則"
-        print(f"Warning: auto-summary markers not found. Inserting them before '{first_principle_header}'.")
-        recurring_section_header = "## 0. 頻出課題（要優先対応・カテゴリ別）"
-        if recurring_section_header not in knowledge_content and first_principle_header not in knowledge_content:
-            if not knowledge_content.endswith("\n\n"):
-                knowledge_content += "\n" if knowledge_content.endswith("\n") else "\n\n"
-            knowledge_content += f"{recurring_section_header}\n\n{auto_block}\n"
-        elif first_principle_header in knowledge_content:
-            before_part, _, after_part = knowledge_content.partition(first_principle_header)
-            before_part = before_part.rstrip("\n") + "\n\n"
-            knowledge_content = before_part + f"{auto_block}\n\n---\n\n" + first_principle_header + after_part
-        else:
-            knowledge_content = knowledge_content.rstrip("\n") + f"\n\n{auto_block}\n"
-
-    with open(KNOWLEDGE_PATH, "w", encoding="utf-8") as f:
-        f.write(knowledge_content)
-
-    print(f"Successfully updated the recurring pattern section in: {KNOWLEDGE_PATH}")
+    # NOTE: This script used to also call Gemini a second time to
+    # re-summarize the *entire* accumulated "7. 読者フィードバックからの知見"
+    # history into an auto-generated block at the top of "0. 頻出課題".
+    # That block only ever grew and duplicated the hand-curated summary
+    # living in the same section, which was a major source of knowledge
+    # base bloat. "0. 頻出課題" is now a manually curated, capped-at-3-items
+    # section (see the file itself) that a human/AI reviewer updates when
+    # patterns actually change, so the auto-regeneration step was removed.
+    # Section 7 itself should be kept to the 5 most recent entries; older
+    # ones belong in knowledge/feedback_archive.md.
 
 if __name__ == "__main__":
     main()
