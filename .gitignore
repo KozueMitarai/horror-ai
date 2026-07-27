@@ -1,2 +1,6 @@
 # ローカルテスト用のモックファイル（リポジトリには含めない）
 mock_event.json
+
+# Pythonのビルド副産物
+__pycache__/
+*.pyc
