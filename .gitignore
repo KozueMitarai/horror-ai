@@ -4,3 +4,8 @@ mock_event.json
 # Pythonのビルド副産物
 __pycache__/
 *.pyc
+
+# build.py が生成するHTML（GitHub Actions が毎回ビルドして Pages に配信するため、
+# リポジトリには含めない。ローカル確認は `python3 build.py` で生成する）
+docs/index.html
+docs/stories/*.html
