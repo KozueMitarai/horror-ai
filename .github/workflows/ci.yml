@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      # ビルドスクリプトのユニットテスト（標準ライブラリのみ）
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+
+      # 実際の stories/ を使ってビルドが通ることを確認する
+      - name: Build static site
+        run: python build.py
+
+      # 生成物が決定的であること（同じ入力なら同じ出力）を確認する
+      - name: Verify the build is reproducible
+        run: |
+          find docs -name '*.html' -type f -exec sha256sum {} + | sort > /tmp/build-1.txt
+          python build.py
+          find docs -name '*.html' -type f -exec sha256sum {} + | sort > /tmp/build-2.txt
+          diff /tmp/build-1.txt /tmp/build-2.txt
