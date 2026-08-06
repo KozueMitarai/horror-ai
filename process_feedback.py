@@ -9,6 +9,7 @@ and appends the analysis results to `knowledge/horror.md`.
 
 import os
 import json
+import sys
 import time
 import urllib.request
 import urllib.error
@@ -16,6 +17,12 @@ import urllib.error
 # Define paths
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 KNOWLEDGE_PATH = os.path.join(ROOT_DIR, "knowledge", "horror.md")
+
+# The Gemini model can be swapped without touching the code by setting
+# GEMINI_MODEL in the workflow (useful when a model is retired or renamed).
+# (`or` so that an unset GitHub Actions variable, which arrives as "", still
+# falls back to the default rather than producing an invalid request URL.)
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL") or "gemini-3.5-flash"
 
 # Gemini API occasionally returns transient errors (503 Service Unavailable
 # when the model is overloaded, 429 rate limiting, 500/502/504). Retry these
@@ -100,7 +107,7 @@ def main():
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("Error: GEMINI_API_KEY environment variable is not set.")
-        exit(1)
+        sys.exit(1)
 
     # 3. Call Gemini API
     # Designing the prompt to extract strengths, weaknesses, and improvements
@@ -129,9 +136,12 @@ def main():
   - 
 """
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
+    # The API key is passed as a header rather than a query parameter so that it
+    # cannot leak into URLs printed in error messages or Actions logs.
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
     headers = {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "x-goog-api-key": api_key,
     }
     payload = {
         "contents": [
@@ -153,14 +163,26 @@ def main():
             method="POST"
         )
 
-    print("Calling Gemini API...")
+    print(f"Calling Gemini API (model: {GEMINI_MODEL})...")
     try:
         response_data = call_gemini_api(build_request)
-        analysis_text = response_data["candidates"][0]["content"]["parts"][0]["text"].strip()
-        print("Successfully received analysis from Gemini API.")
     except Exception as e:
         print(f"Error calling Gemini API: {e}")
-        exit(1)
+        sys.exit(1)
+
+    try:
+        analysis_text = response_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    except (KeyError, IndexError, TypeError):
+        # A blocked or empty response has no candidates; show what came back so
+        # the failure is diagnosable from the Actions log.
+        print(f"Error: unexpected Gemini API response shape: {json.dumps(response_data)[:1000]}")
+        sys.exit(1)
+
+    if not analysis_text:
+        print("Error: Gemini API returned an empty analysis. Nothing to append.")
+        sys.exit(1)
+
+    print("Successfully received analysis from Gemini API.")
 
     # 4. Read and update knowledge/horror.md
     if not os.path.exists(KNOWLEDGE_PATH):
