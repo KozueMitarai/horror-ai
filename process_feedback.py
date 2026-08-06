@@ -9,6 +9,7 @@ and appends the analysis results to `knowledge/horror.md`.
 
 import os
 import json
+import re
 import sys
 import time
 import urllib.request
@@ -17,6 +18,21 @@ import urllib.error
 # Define paths
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 KNOWLEDGE_PATH = os.path.join(ROOT_DIR, "knowledge", "horror.md")
+ARCHIVE_PATH = os.path.join(ROOT_DIR, "knowledge", "feedback_archive.md")
+
+# New analyses are inserted into this section rather than appended to the end of
+# the file, so that adding any section below it cannot misplace them.
+FEEDBACK_SECTION_HEADER = "## 7. 読者フィードバックからの知見"
+FEEDBACK_SECTION_INTRO = (
+    "ここでは、読者から寄せられたフィードバック（GitHub Issues）を分析し、"
+    "執筆ナレッジの向上に役立てるための履歴を蓄積します。"
+)
+ENTRY_HEADING_RE = re.compile(r'(?m)^(?=### 【フィードバック分析:)')
+
+# The knowledge base keeps only the most recent analyses; older ones are moved
+# to knowledge/feedback_archive.md. This rule is documented in horror.md and
+# prompt.md, and is enforced here so the section cannot silently grow.
+MAX_FEEDBACK_ENTRIES = 5
 
 # The Gemini model can be swapped without touching the code by setting
 # GEMINI_MODEL in the workflow (useful when a model is retired or renamed).
@@ -66,6 +82,63 @@ def call_gemini_api(request_factory):
             print(f"Network error calling Gemini API: {e}")
             raise
     raise last_error
+
+
+def split_feedback_section(content):
+    """
+    Splits the knowledge base around the reader-feedback section.
+
+    Returns (before, section, after), or None when the section is absent.
+    `section` starts at its `## 7. ...` heading and ends just before the next
+    top-level `## ` heading (or at the end of the file).
+    """
+    start = content.find(FEEDBACK_SECTION_HEADER)
+    if start == -1:
+        return None
+    # "\n## " only matches a level-2 heading; "### " entries are left alone.
+    end = content.find("\n## ", start + len(FEEDBACK_SECTION_HEADER))
+    end = len(content) if end == -1 else end + 1
+    return content[:start], content[start:end], content[end:]
+
+
+def split_entries(section):
+    """Splits a section into its preamble text and its list of entries."""
+    parts = ENTRY_HEADING_RE.split(section)
+    return parts[0], [entry.strip() for entry in parts[1:] if entry.strip()]
+
+
+def add_feedback_entry(knowledge_content, analysis_text):
+    """
+    Inserts an analysis into the reader-feedback section and enforces the
+    "keep only the most recent entries" rule.
+
+    Returns (new_knowledge_content, entries_to_archive).
+    """
+    split = split_feedback_section(knowledge_content)
+    if split is None:
+        print("Adding section header for reader feedback insights.")
+        before = knowledge_content.rstrip("\n") + "\n\n"
+        section = f"{FEEDBACK_SECTION_HEADER}\n\n{FEEDBACK_SECTION_INTRO}\n\n"
+        after = ""
+    else:
+        before, section, after = split
+
+    preamble, entries = split_entries(section)
+    entries.append(analysis_text.strip())
+
+    # Oldest entries overflow into the archive file
+    overflow = entries[:-MAX_FEEDBACK_ENTRIES] if len(entries) > MAX_FEEDBACK_ENTRIES else []
+    entries = entries[len(overflow):]
+
+    rebuilt = preamble.rstrip("\n") + "\n\n" + "".join(f"{e}\n\n" for e in entries)
+    return before + rebuilt + after, overflow
+
+
+def archive_entries(archive_content, entries):
+    """Appends overflowed entries to the archive file's content."""
+    if not entries:
+        return archive_content
+    return archive_content.rstrip("\n") + "\n\n" + "".join(f"{e}\n\n" for e in entries)
 
 
 def main():
@@ -194,27 +267,20 @@ def main():
     with open(KNOWLEDGE_PATH, "r", encoding="utf-8") as f:
         knowledge_content = f.read()
 
-    # Section header to separate reader feedback insights
-    section_header = "## 7. 読者フィードバックからの知見"
-    
-    if section_header not in knowledge_content:
-        print("Adding section header for reader feedback insights.")
-        if not knowledge_content.endswith("\n\n"):
-            if knowledge_content.endswith("\n"):
-                knowledge_content += "\n"
-            else:
-                knowledge_content += "\n\n"
-        knowledge_content += f"{section_header}\n\n"
-        knowledge_content += "ここでは、読者から寄せられたフィードバック（GitHub Issues）を分析し、執筆ナレッジの向上に役立てるための履歴を蓄積します。\n\n"
+    knowledge_content, overflow = add_feedback_entry(knowledge_content, analysis_text)
 
-    # Append the analysis text
-    if not knowledge_content.endswith("\n\n"):
-        if knowledge_content.endswith("\n"):
-            knowledge_content += "\n"
+    # 5. Move entries beyond the cap into knowledge/feedback_archive.md
+    if overflow:
+        archive_content = ""
+        if os.path.exists(ARCHIVE_PATH):
+            with open(ARCHIVE_PATH, "r", encoding="utf-8") as f:
+                archive_content = f.read()
         else:
-            knowledge_content += "\n\n"
-            
-    knowledge_content += f"{analysis_text}\n"
+            archive_content = "# 読者フィードバック アーカイブ (Feedback Archive)\n"
+
+        with open(ARCHIVE_PATH, "w", encoding="utf-8") as f:
+            f.write(archive_entries(archive_content, overflow))
+        print(f"Moved {len(overflow)} older entrie(s) to {ARCHIVE_PATH}")
 
     # Write the updated content back to the file
     with open(KNOWLEDGE_PATH, "w", encoding="utf-8") as f:
@@ -230,8 +296,7 @@ def main():
     # base bloat. "0. 頻出課題" is now a manually curated, capped-at-3-items
     # section (see the file itself) that a human/AI reviewer updates when
     # patterns actually change, so the auto-regeneration step was removed.
-    # Section 7 itself should be kept to the 5 most recent entries; older
-    # ones belong in knowledge/feedback_archive.md.
+    # Section 7 is capped at MAX_FEEDBACK_ENTRIES by add_feedback_entry above.
 
 if __name__ == "__main__":
     main()

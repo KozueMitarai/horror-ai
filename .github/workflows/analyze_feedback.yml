@@ -49,7 +49,8 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add knowledge/horror.md
+          # 古い分析はスクリプトが feedback_archive.md へ移動するため、両方を対象にする
+          git add knowledge/horror.md knowledge/feedback_archive.md
           # 変更がない場合はコミット・プッシュをスキップする
           if git diff --cached --quiet; then
             echo "No knowledge base changes to commit."
