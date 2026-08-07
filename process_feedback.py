@@ -22,7 +22,7 @@ ARCHIVE_PATH = os.path.join(ROOT_DIR, "knowledge", "feedback_archive.md")
 
 # New analyses are inserted into this section rather than appended to the end of
 # the file, so that adding any section below it cannot misplace them.
-FEEDBACK_SECTION_HEADER = "## 7. 読者フィードバックからの知見"
+FEEDBACK_SECTION_HEADER = "## 1. 読者フィードバックからの知見"
 FEEDBACK_SECTION_INTRO = (
     "ここでは、読者から寄せられたフィードバック（GitHub Issues）を分析し、"
     "執筆ナレッジの向上に役立てるための履歴を蓄積します。"
@@ -288,15 +288,8 @@ def main():
 
     print(f"Successfully updated knowledge base file: {KNOWLEDGE_PATH}")
 
-    # NOTE: This script used to also call Gemini a second time to
-    # re-summarize the *entire* accumulated "7. 読者フィードバックからの知見"
-    # history into an auto-generated block at the top of "0. 頻出課題".
-    # That block only ever grew and duplicated the hand-curated summary
-    # living in the same section, which was a major source of knowledge
-    # base bloat. "0. 頻出課題" is now a manually curated, capped-at-3-items
-    # section (see the file itself) that a human/AI reviewer updates when
-    # patterns actually change, so the auto-regeneration step was removed.
-    # Section 7 is capped at MAX_FEEDBACK_ENTRIES by add_feedback_entry above.
+    # The feedback section is capped at MAX_FEEDBACK_ENTRIES by
+    # add_feedback_entry above; older entries move to feedback_archive.md.
 
 if __name__ == "__main__":
     main()

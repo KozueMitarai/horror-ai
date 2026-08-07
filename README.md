@@ -125,4 +125,4 @@ python3 -m unittest discover -s tests
   - リポジトリの `Settings` > `Secrets and variables` > `Actions` に、シークレット `GEMINI_API_KEY` を登録してください。
   - 使用モデルはリポジトリ変数 `GEMINI_MODEL` で差し替えられます（未設定時は `gemini-3.5-flash`）。
   - このワークフローは**タイトルが「感想」で始まるIssueのみ**を対象とします。感想フォームのリンクが生成するタイトル（`感想: 作品名 (日付)`）がこれに該当します。不具合報告や要望など、それ以外のIssueが自動でクローズされることはありません。
-  - 蓄積された知見のうち、`## 7. 読者フィードバックからの知見` は直近5件程度に保ち、古いものは `knowledge/feedback_archive.md` へ手動で移動してナレッジベースの肥大化を防ぎます。
+  - 蓄積された知見のうち、`## 1. 読者フィードバックからの知見` は直近5件のみを保持し、古いものは `process_feedback.py` が自動的に `knowledge/feedback_archive.md` へ移動してナレッジベースの肥大化を防ぎます。

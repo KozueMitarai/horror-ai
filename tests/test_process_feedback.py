@@ -123,9 +123,8 @@ class RoundTripTest(unittest.TestCase):
 
         updated, overflow = pf.add_feedback_entry(original, entry(99))
 
-        # Every other section is left intact
-        for heading in ("## 0. 頻出課題", "## 5. 作品データベース", "## 6. 逃げられない理由"):
-            self.assertIn(heading, updated)
+        # The title and intro above the feedback section are left intact
+        self.assertIn("# ホラー小説 読者フィードバック", updated)
         self.assertIn(entry(99), updated)
 
         _, entries = pf.split_entries(pf.split_feedback_section(updated)[1])
